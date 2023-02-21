@@ -1,0 +1,12 @@
+CREATE INDEX t_hash_index ON T_hash (str, id) GLOBAL
+     PARTITION BY HASH (str)
+     (PARTITION key1  TABLESPACE tb1,
+      PARTITION key2  TABLESPACE tb2,
+      PARTITION key3  TABLESPACE tb3,
+      PARTITION key4  TABLESPACE tb4);
+
+CREATE INDEX t_hash2_loc_index ON T_hash2(str) LOCAL;
+
+CREATE INDEX t_list_comp_index ON T_LIST(OBJ) COMPRESS LOCAL
+(PARTITION part1 , PARTITION part2,
+    PARTITION part3 NOCOMPRESS);

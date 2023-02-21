@@ -1,0 +1,34 @@
+ BEGIN
+ DBMS_SCHEDULER.CREATE_JOB(
+ JOB_NAME => 'test_job',
+ JOB_TYPE => 'PLSQL_BLOCK',
+ JOB_ACTION => 'insert into persons select * from new_persons;',
+ START_DATE => '28-JUNE-08 07.00.00 PM ',
+ REPEAT_INTERVAL => 'FREQ=DAILY; INTERVAL=2',
+ END_DATE => '20-NOV-08 07.00.00 PM ',
+ COMMENTS => 'Insert new customers into the persons table',
+ ENABLED => TRUE,
+ END;
+
+begin
+ dbms_scheduler.create_job(
+ job_name           => 'remove_logs',
+ job_type           => 'executable',
+ job_action         => '/u01/app/oracle/logs/removelogs',
+ repeat_interval    => 'freq=daily; byhour=23',
+ enabled => false);
+ end;
+
+begin
+  dbms_scheduler.create_job(
+      job_name => 'jobsh_2',
+      job_type => 'STORED_PROCEDURE',
+      job_action => 'procedure',
+      start_date => sysdate,
+      repeat_interval => 'FREQ=DAILY; INTERVAL=7;BYHOUR=10; BYMINUTE=10;BYSECOND=30',  --hourly
+      enabled => true
+  );
+end;
+
+select job_name, job_type, job_action, start_date, repeat_interval, next_run_date, enabled from user_scheduler_jobs;
+select job_name, state from  user_scheduler_jobs;

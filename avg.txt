@@ -1,0 +1,37 @@
+
+create or replace PACKAGE BODY PRICE_PRODUCTS AS 
+function AVG_PRICE(ord_start_date ORDERS.ORDER_DATE%type, ord_end_date ORDERS.ORDER_DATE%type) 
+    return number is orCount number := 0;
+    c number;
+begin
+        if ord_start_date >= ord_end_date then raise wrong_date;
+        end if;
+        select AVG(p.PRICE) into orCount from ORDERS ord inner join PRODUCTS p 
+        on ord.PRODUCT = p.PRODUCT_ID
+        where ord.ORDER_DATE > ord_start_date and ord.ORDER_DATE < ord_end_date;
+        if orCount < 1 then raise no_office;
+        end if;
+    return orCount;
+exception
+when wrong_date then
+        raise_application_error(-20003, 'Start_date more or equal to End_date');
+when no_office then
+        raise_application_error(-20004, 'No orders in interval');
+end;
+end PRICE_PRODUCTS;
+
+DECLARE
+    start_date ORDERS.ORDER_DATE%type;
+    end_date ORDERS.ORDER_DATE%type;
+BEGIN
+    start_date := '17.12.06';
+    end_date := '17.12.09';
+ 
+    select PRICE_PRODUCTS.AVG_PRICE('17.12.06','17.12.09') as "AVG of orders: " from dual;
+  
+    select PRICE_PRODUCTS.AVG_PRICE('17.12.11','17.12.09') as "AVG of orders: " from dual;
+  
+    select PRICE_PRODUCTS.AVG_PRICE('17.12.06','17.12.09') as "AVG of orders: " from dual;
+    dbms_output.put_line('Количество заказов у офиса 13: ' ||  DB_OFFICES_PKG.GET_NUM_ORDERS(13,'17.12.06','17.12.09'));
+
+END;

@@ -1,0 +1,202 @@
+ALTER DATABASE OPEN;
+
+--sys_to_GAE_PDB
+--              TASK 1
+select tablespace_name, contents from DBA_TABLESPACES;
+--              TASK 2
+create tablespace GAE_QDATA
+  datafile 'C:\Oracle_setup\app\Tablespaces\GAE_PDB\GAE_QDATA5.dbf'
+  size 10 M
+  offline;
+  
+alter tablespace GAE_QDATA online;
+
+DROP TABLESPACE GAE_QDATA INCLUDING CONTENTS AND DATAFILES; 
+
+create role myrole;
+grant create session,
+      create table, 
+      create view, 
+      create procedure,
+      drop any table,
+      drop any view,
+      drop any procedure to myrole;    
+grant create session to myrole;
+commit;
+
+create profile myprofile limit
+    password_life_time 180      --кол-во дней жизни пароля
+    sessions_per_user 3         --кол-во сессий для юзера
+    failed_login_attempts 7     --кол-во попыток ввода
+    password_lock_time 1        --кол-во дней блока после ошибок
+    password_reuse_time 10      --через скок дней можно повторить пароль
+    password_grace_time default --кол-во дней предупрежд.о смене пароля
+    connect_time 180            --время соед (мин)
+    idle_time 30 ;  
+    
+create user GAE identified by 1234
+default tablespace GAE_QDATA quota unlimited on GAE_QDATA
+profile myprofile
+account unlock;
+
+alter user GAE quota 2m on GAE_QDATA;
+grant myrole to GAE;
+
+-- GAE_to_GAE_PDB
+
+create table GAE_T1(
+id number(15) PRIMARY KEY,
+name varchar2(10))
+tablespace GAE_QDATA;
+
+DROP TABLE GAE_T1
+
+insert into GAE_T1 values(1, 'A');
+insert into GAE_T1 values(2, 'B');
+insert into GAE_T1 values(3, 'C');
+
+SELECT * FROM GAE_T1;
+
+--              TASK 3
+select d segment_type from DBA_SEGMENTS; where tablespace_name='GAE_QDATA';
+
+--              TASK 4
+--(удалить таблицу)
+drop table GAE_T1;
+--(список сегментов)
+select * from DBA_SEGMENTS where tablespace_name='GAE_QDATA';
+--(запрос к представление)
+select * from user_recyclebin;
+
+--              TASK 5
+flashback table GAE_T1 to before drop;
+
+--              TASK 6
+BEGIN
+  FOR k IN 4..10004
+  LOOP
+    insert into GAE_T1 values(k, 'A');
+  END LOOP;
+END;
+commit;
+
+SELECT * FROM GAE_T1 order by id;
+
+--              TASK 7
+
+select extent_id, blocks, bytes from DBA_EXTENTS where SEGMENT_NAME='GAE_T1';
+
+--              TASK 8
+
+--▬▬▬
+DROP TABLESPACE GAE_QDATA INCLUDING CONTENTS AND DATAFILES;
+--▬▬▬   
+
+--              TASK 9
+--sys_to_GAE_PDB
+SELECT group#, sequence#, bytes, members, status, first_change# FROM V$LOG;
+
+--              TASK 10
+SELECT group#, sequence#, bytes, members, status, first_change# FROM V$LOG;
+
+--              TASK 11
+
+ALTER SYSTEM SWITCH LOGFILE; 15:30:25
+SELECT * FROM V$LOG;
+
+--              TASK 12
+
+alter database add logfile group 4 'C:\Oracle_setup\app\Logfiles\REDO040.LOG' 
+size 50m blocksize 512;
+alter database add logfile member 'C:\Oracle_setup\app\Logfiles\REDO041.LOG'  to group 4;
+alter database add logfile member 'C:\Oracle_setup\app\Logfiles\REDO042.LOG'  to group 4;
+commit;
+
+SELECT group#, sequence#, bytes, members, status, first_change# FROM V$LOG;
+
+--              TASK 13
+
+alter database clear logfile group 4;
+alter database drop logfile group 4;
+SELECT group#, sequence#, bytes, members, status, first_change# FROM V$LOG;
+commit;
+
+--              TASK 14
+
+SELECT NAME, LOG_MODE FROM V$DATABASE;
+SELECT INSTANCE_NAME, ARCHIVER, ACTIVE_STATE FROM V$INSTANCE;
+
+--              TASK 15
+ALTER SYSTEM SWITCH LOGFILE;
+SELECT NAME, FIRST_CHANGE#, NEXT_CHANGE# FROM V$ARCHIVED_LOG;
+
+--              TASK 16
+--sql plus
+--connect /as sysdba
+--shutdown immediate;
+--startup mount;
+--alter database archivelog;
+--archive log list;
+--alter database open;
+
+--              TASK 17
+ALTER SYSTEM SET LOG_ARCHIVE_DEST_1 ='LOCATION=C:\Oracle_setup\app\ora_install_user\oradata\ORCL\archive'
+ALTER SYSTEM SWITCH LOGFILE;
+SELECT NAME, FIRST_CHANGE#, NEXT_CHANGE# FROM V$ARCHIVED_LOG;
+--              TASK 18
+
+--shutdown immediate;
+--startup mount;
+--alter database noarchivelog;
+--select name, log_mode from v$database;
+--alter database open;
+
+--              TASK 19
+
+select name from v$controlfile;
+
+--              TASK 20
+show parameter control;
+
+--              TASK 21
+ALTER DATABASE BACKUP CONTROLFILE TO TRACE;
+show parameter spfile ;
+
+--              TASK 22
+
+CREATE PFILE='user_pf.ora' FROM SPFILE;
+--C:\Oracle_setup\app\USER\product\11.2.0\dbhome_2\database
+
+--              TASK 23
+SELECT * FROM V$PWFILE_USERS;
+show parameter remote_login_passwordfile;
+
+--              TASK 24
+SELECT * FROM V$DIAG_INFO;
+
+--              TASK 25
+--C:\Oracle_setup\app\ora_install_user\diag\rdbms\orcl\orcl\alert
+--              TASK 26
+--        Удалить все файлы
+select tablespace_name, contents from DBA_TABLESPACES;
+select file_name, tablespace_name FROM DBA_DATA_FILES;
+select distinct segment_type from DBA_SEGMENTS; where tablespace_name='GAE_QDATA';
+select extent_id, blocks, bytes from DBA_EXTENTS where SEGMENT_NAME='GAE_T1';
+select segment_name, segment_type from DBA_SEGMENTS where tablespace_name='GAE_QDATA';
+SELECT NAME, FIRST_CHANGE#, NEXT_CHANGE# FROM V$ARCHIVED_LOG;
+SELECT group#, sequence#, bytes, members, status, first_change# FROM V$LOG;
+SELECT a.tablespace_name, "Free, MB", "Total, MB" FROM
+    (SELECT tablespace_name, ROUND(SUM(bytes)/1024/1024) AS "Total, MB" FROM dba_data_files GROUP BY tablespace_name
+    UNION
+    SELECT tablespace_name, ROUND(SUM(bytes)/1024/1024) AS "Total, MB" FROM dba_temp_files GROUP BY tablespace_name) a,
+    (SELECT tablespace_name, ROUND(SUM(bytes)/1024/1024) AS "Free, MB" FROM dba_free_space GROUP BY tablespace_name) b
+WHERE a.tablespace_name = b.tablespace_name (+)
+ORDER BY a.tablespace_name;
+show parameter archivelog;
+SELECT NAME, LOG_MODE FROM V$DATABASE;
+SELECT INSTANCE_NAME, ARCHIVER, ACTIVE_STATE FROM V$INSTANCE;
+
+show parameter control;
+
+ALTER SYSTEM SET LOG_ARCHIVE_DEST_1 ='LOCATION=C:\Oracle_setup\app\ora_install_user\oradata\ORCL\archive'
+ALTER SYSTEM SWITCH LOGFILE;

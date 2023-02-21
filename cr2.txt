@@ -1,0 +1,155 @@
+create or replace PACKAGE DB_OFFICES_PKG AS
+    TYPE OFF_SALES IS RECORD (of_id OFFICES.OFFICE%type,
+    ord_id ORDERS.ORDER_NUM%type,
+    ord_prod ORDERS.PRODUCT%type,
+    of_sales OFFICES.SALES%type);
+    TYPE ORD_COUNT IS RECORD (of_id OFFICES.OFFICE%type,
+    ord_start_date ORDERS.ORDER_DATE%type,
+    ord_end_date ORDERS.ORDER_DATE%type
+    );
+    TYPE MyType IS RECORD(ID NUMBER, 
+    C NUMBER);   
+    TYPE MyTableType IS TABLE OF MyType;   
+
+    CURSOR cur_1 
+    is select OFFICE from OFFICES;
+
+    CURSOR my_curs RETURN OFF_SALES is  
+    select o.OFFICE, ord.ORDER_NUM, ord.PRODUCT, o.SALES from OFFICES o inner join ORDERS ord on o.MGR = ord.REP;
+
+    function GET_NUM_ORDERS (of_id OFFICES.OFFICE%type, 
+    ord_start_date ORDERS.ORDER_DATE%type, 
+    ord_end_date ORDERS.ORDER_DATE%type)
+    return number;
+    function GET_ORDERS_QUANTITY (of_id_2 OFFICES.OFFICE%type, 
+    ord_start_date_1 ORDERS.ORDER_DATE%type, 
+    ord_end_date_1 ORDERS.ORDER_DATE%type)
+    return MyTableType PIPELINED;
+    procedure GET_SALES(of_id OFFICES.OFFICE%type);
+    wrong_date EXCEPTION;
+    no_office EXCEPTION;
+END DB_OFFICES_PKG;
+
+create or replace PACKAGE BODY db_offices_pkg AS 
+    of_id OFFICES.OFFICE%type;
+    ord_id ORDERS.ORDER_NUM%type;
+    ord_prod ORDERS.PRODUCT%type;
+    of_sales OFFICES.SALES%type;
+function GET_ORDERS_QUANTITY(of_id_2 OFFICES.OFFICE%type, 
+    ord_start_date_1 ORDERS.ORDER_DATE%type, 
+    ord_end_date_1 ORDERS.ORDER_DATE%type) 
+return MyTableType pipelined is 
+    out_rec MyType;
+    roww cur_1%rowtype;
+    n1 number;
+    c number;
+Begin
+        if ord_start_date_1 >= ord_end_date_1 then raise wrong_date;
+        end if;
+        select count(*) into c from OFFICES where OFFICES.OFFICE = of_id_2;
+        if c < 1 then raise no_office;
+        end if;
+        Open cur_1;
+        loop
+            fetch cur_1 into out_rec.ID;
+            select count(*) into n1 from ORDERS ord join OFFICES o 
+            on ord.REP = o.MGR
+            where out_rec.ID = o.OFFICE and ord.ORDER_DATE > ord_start_date_1 and ord.ORDER_DATE < ord_end_date_1;
+            out_rec.C := n1;
+            exit when cur_1%notfound;
+            PIPE ROW(out_rec);
+        End loop;
+        Close cur_1;
+end GET_ORDERS_QUANTITY;
+
+function GET_NUM_ORDERS(of_id OFFICES.OFFICE%type, ord_start_date ORDERS.ORDER_DATE%type, ord_end_date ORDERS.ORDER_DATE%type) 
+    return number is orCount number := 0;
+    c number;
+begin
+        if ord_start_date >= ord_end_date then raise wrong_date;
+        end if;
+        select count(*) into c from OFFICES where OFFICES.OFFICE = of_id;
+        if c < 1 then raise no_office;
+        end if;
+        select count(*) into orCount from ORDERS ord join OFFICES o 
+        on ord.REP = o.MGR
+        where of_id = o.OFFICE and ord.ORDER_DATE > ord_start_date and ord.ORDER_DATE < ord_end_date;
+    return orCount;
+exception
+when wrong_date then
+        raise_application_error(-20003, 'Parameter 1 more or equal to Parameter 2');
+when no_office then
+        raise_application_error(-20004, 'No such office');
+end;
+
+procedure GET_SALES(of_id OFFICES.OFFICE%type) IS 
+of_id_1 OFFICES.OFFICE%type;
+begin
+    if of_id <= 0 then raise no_office;
+    elsif of_id is null then raise no_office;
+    end if;
+    open my_curs;
+    fetch my_curs into of_id_1,ord_id,ord_prod,of_sales;
+    LOOP
+        if of_id_1 = of_id then dbms_output.put_line(my_curs%rowcount|| '. Офис: '||of_id_1||' | Номер заказа: '|| ord_id||' | Продукт: '|| ord_prod ||' Сумма заказов офиса:  '||of_sales);
+        end if;
+        fetch my_curs into of_id_1,ord_id,ord_prod,of_sales;
+        exit when my_curs%notfound;
+  end LOOP;
+  close my_curs;
+exception
+when no_office THEN 
+    if of_id is null then
+        raise_application_error(-20001, 'Argument is null');
+    elsif of_id < 0 then
+        raise_application_error(-20002, 'Critical error: negative');
+    end if;
+when others then raise_application_error(-20010, 'Error found');
+end GET_SALES;
+
+END db_offices_pkg; 
+
+DECLARE
+    of_1 OFFICES.OFFICE%type;
+    start_date ORDERS.ORDER_DATE%type;
+    end_date ORDERS.ORDER_DATE%type;
+BEGIN
+    of_1 := 11;
+    start_date := '17.12.06';
+    end_date := '17.12.09';
+ 
+    select DB_OFFICES_PKG.GET_NUM_ORDERS(13,'17.12.06','17.12.09') as "Quantity of orders: " from dual;
+  
+    select DB_OFFICES_PKG.GET_NUM_ORDERS(11,'01.01.07','31.12.07') as "Quantity of orders: " from dual;
+  
+    select DB_OFFICES_PKG.GET_NUM_ORDERS(-1,'17.12.06','17.12.09') as "Quantity of orders: " from dual;
+
+    select * from table(DB_OFFICES_PKG.get_orders_quantity(11,'01.01.07','31.12.07'));
+    
+end;
+declare
+of_1 OFFICES.OFFICE%type;
+begin
+    of_1 := 11;
+    
+    DBMS_OUTPUT.PUT_LINE('По '|| of_1 || ' офису:' );
+    DB_OFFICES_PKG.GET_SALES(of_1);
+    
+    DBMS_OUTPUT.PUT_LINE('По 13 офису(успешно): ');
+    DB_OFFICES_PKG.GET_SALES(13);
+    
+    DBMS_OUTPUT.PUT_LINE('По 14 офису(ничего): ');
+    DB_OFFICES_PKG.GET_SALES(14);
+    
+    DBMS_OUTPUT.PUT_LINE('По null офису(exception)НАПОМНИТЬ: СЛОМ ПРОЦЕДУРЫ ПРИ НЕГ. или null: ');
+    DB_OFFICES_PKG.GET_SALES(null);
+    
+    DBMS_OUTPUT.PUT_LINE('По попытка записать значение офиса строкой офису(автопреобразование): ');
+    DB_OFFICES_PKG.GET_SALES('13');
+    
+    DBMS_OUTPUT.PUT_LINE('По попытка записать значение офиса строкой офису(не число): ');
+    DB_OFFICES_PKG.GET_SALES('авоыдо');
+    
+    DBMS_OUTPUT.PUT_LINE('По -1 офису:' );
+    DB_OFFICES_PKG.GET_SALES(-1);
+end;

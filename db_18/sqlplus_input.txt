@@ -1,0 +1,2 @@
+sqlldr GAE/12345@//169.254.222.194:1521/pdb1 CONTROL=control.ctl
+sqlldr GAE_1/12345@//localhost:1522/pdb1 CONTROL=control.ctl

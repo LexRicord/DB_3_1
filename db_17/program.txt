@@ -1,0 +1,11 @@
+begin
+  dbms_scheduler.create_program(
+      program_name => 'Pr_2',
+      program_type => 'STORED_PROCEDURE',
+      program_action => 'up_job',
+      number_of_arguments => 0,
+      enabled => false,
+      comments => 'Sch_2 DAILY at 12:00'
+  );
+end;
+select * from user_scheduler_programs;
